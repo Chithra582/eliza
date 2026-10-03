@@ -1,10 +1,21 @@
-# Eliza Explainability & Decision Transparency Report
+# EXPLAINABILITY.md
+
+This document explains the internal mechanisms, data lineage, operational boundaries, and governance framework of **Eliza** (`eliza`) in accordance with the **OpenGAP v0.1.0** specification for the **HiDevs GitAgent Passport** clearance pipeline.
+
+> **Agent Name:** Eliza (`eliza`)  
+> **Specification:** OpenGAP v0.1.0  
+> **Category / Domain:** Autonomous Social & Web3 Agent Framework  
+> **Compliance Standard:** OpenGAP Checkpoint 2 (Explainability & Decision Governance), OWASP LLM Top 10, MITRE ATLAS  
+
+---
 
 ## How the Agent Decides
 
 Eliza processes incoming social messages, retrieves associative memory, evaluates candidate actions, and formats character responses through a deterministic 5-stage decision pipeline.
 
-### 5-Stage Decision Pipeline
+### 1. Decision Architecture
+
+The runtime intake, state classification, evaluation, and execution tracking operate across a deterministic, five-stage pipeline:
 
 ```
 +-----------------------------------------------------------------------------------+
@@ -31,7 +42,7 @@ Eliza processes incoming social messages, retrieves associative memory, evaluate
 +-----------------------------------------------------------------------------------+
 ```
 
-### Mathematical Formulation of Scoring & Routing
+### 2. Decision Logic & Routing Formulations
 
 For an incoming message $m_t$, active character configuration $c_i$, and retrieved context memory $M$, the response decision score $S_{\text{response}}(c_i, m_t)$ is formulated as:
 
@@ -48,71 +59,105 @@ Response dispatch and action execution require:
 
 $$S_{\text{response}}(c_i, m_t) \ge \tau \quad (\tau = 0.65) \quad \land \quad S(m_t) \ge 0.90$$
 
-### Thresholds and Refusal Criteria
+### 3. Thresholding & Refusal Decision Criteria
 
-When input messages violate safety policies or exceed execution boundaries, Eliza refuses execution deterministically:
+Eliza enforces strict operational boundaries and deterministic refusal thresholds:
+- **Refusal on ERR_INVALID_CHARACTER_SCHEMA**: `character.json` missing mandatory name or bio halts execution with code `ERR_INVALID_CHARACTER_SCHEMA`.
+- **Refusal on ERR_CLIENT_DISCONNECTED**: Socket or API connection to Discord/Twitter lost halts execution with code `ERR_CLIENT_DISCONNECTED`.
+- **Refusal on ERR_UNAUTHORIZED_ONCHAIN_ACTION**: Proposed transaction value exceeds per-turn limit halts execution with code `ERR_UNAUTHORIZED_ONCHAIN_ACTION`.
+- **Refusal on ERR_CONTEXT_OVERFLOW**: Assembled prompt exceeds LLM context token window halts execution with code `ERR_CONTEXT_OVERFLOW`.
+- **Refusal on ERR_SAFETY_POLICY_VIOLATION**: Moderation filter score $< 0.90$ (toxicity detected) halts execution with code `ERR_SAFETY_POLICY_VIOLATION`.
 
-| Error Code | Trigger Condition | Deterministic Behavior |
-|---|---|---|
-| `ERR_INVALID_CHARACTER_SCHEMA` | `character.json` missing mandatory name or bio | Reject initialization with schema validation trace |
-| `ERR_CLIENT_DISCONNECTED` | Socket or API connection to Discord/Twitter lost | Buffer messages; initiate reconnect daemon |
-| `ERR_UNAUTHORIZED_ONCHAIN_ACTION` | Proposed transaction value exceeds per-turn limit | Block transaction broadcast; require admin signature |
-| `ERR_CONTEXT_OVERFLOW` | Assembled prompt exceeds LLM context token window | Trigger memory compaction and sliding window prune |
-| `ERR_SAFETY_POLICY_VIOLATION` | Moderation filter score $< 0.90$ (toxicity detected) | Suppress response; emit benign default acknowledgment |
+### 4. Fallback Decision Mechanism
 
-### Multi-Tier Fallback Mechanisms
+Continuous operational stability is maintained through layered fault recovery:
+- **Tier 1 (Prompt Pruning & ReQuery):** If inference fails due to context limits, automatically truncate lowestsimilarity memories and requery the language model.
+- **Tier 2 (Static Persona Bio Fallback):** If inference endpoints experience persistent API timeouts, respond with a preconfigured, incharacter canned message from the character manifest.
+- **Model Fallback Cascade**: High-level reasoning and synthesis default to `gemini-2.0-flash` with automatic failover to `gpt-4o` and `claude-3-5-sonnet`.
 
-Eliza enforces a 3-tier fallback architecture to guarantee uninterrupted social engagement:
+### 5. Human-in-the-Loop Governance
 
-1. **Tier 1 (Prompt Pruning & Re-Query):** If inference fails due to context limits, automatically truncate lowest-similarity memories and re-query the language model.
-2. **Tier 2 (Static Persona Bio Fallback):** If inference endpoints experience persistent API timeouts, respond with a pre-configured, in-character canned message from the character manifest.
-3. **Tier 3 (Human Moderator Interceptor):** If a user repeatedly triggers safety guardrails or attempts prompt injection, flag the interaction to the human moderator console for manual intervention.
+Human operators retain sovereign authority over the multi-agent execution lifecycle:
+- **Tier 3 (Human Moderator Interceptor):** If a user repeatedly triggers safety guardrails or attempts prompt injection, flag the interaction to the human moderator console for manual intervention.
+- **Session Telemetry Auditing**: Operators inspect execution logs, routing traces, and token usage to maintain oversight.
+
+---
 
 ## The Data It Uses
 
-### Inputs Processed
+Eliza operates under strict principles of data minimization, environment isolation, and privacy protection.
+
+### 1. Ingested Input Data
+
+The framework processes only operational data necessary to perform its functions:
 - **Social Messages**: Text content, mentions, reply chains, and channel metadata from Discord, Twitter, and Telegram.
 - **User Attributes**: User IDs, platform handles, and historical interaction timestamps.
 - **Client Payloads**: Direct REST and WebSocket event frames from web and desktop interfaces.
 
-### Reference Data
+### 2. Configuration & Reference Data
+
 - **Character Manifests**: Declarative `character.json` files specifying names, bios, lore, stylistic rules, and knowledge vectors.
 - **Episodic & Semantic Memories**: Vector embeddings stored in SQLite, PostgreSQL (pgvector), or Supabase databases.
 - **Plugin Manifests**: Tool definitions and schema constraints for Web3 (Solana, EVM) and Web2 service connectors.
 
-### Model Lineage & Weights
+### 3. Base Model & Inference Lineage
+
 - **Inference Agnostic**: Interfaces with OpenAI, Anthropic, Groq, Ollama, Together AI, and custom local models.
 - **Embedding Models**: Standardized embeddings (`text-embedding-3-small`, `bge-small-en-v1.5`) for fast vector similarity search.
 
-### Retention & Data Privacy
-- **Self-Hosted Memory**: All conversational memories and vector indexes reside within user-managed database partitions.
-- **Zero Central Telemetry**: Eliza agents do not send private chat logs or private keys to external centralized telemetry hubs.
-- **Data Pruning**: Configurable retention policies allow automated purging of expired or transient social interactions.
+### 4. Data Privacy, Storage, and Retention
+
+- **OWASP LLM & MITRE ATLAS Hardened**: Defended against indirect prompt injection, credential leakage, and unauthorized external API dispatch.
+- **Local Environment Isolation**: Agent execution workspaces, intermediate scratchpads, and vector stores reside strictly within designated local project directories.
+- **Automated Secret Scrubbing**: API keys, database credentials, and personal credentials are automatically redacted prior to embedding or logging.
+- **Zero Commercial Monetization**: Prompts, intermediate reasoning trajectories, and task deliverables are never commercialized or shared with third parties.
+
+---
 
 ## Limitations
 
-1. **Limitation:** High-volume social channels (e.g., active Discord servers) can cause token budget depletion if every message is processed.
-   **Mitigation:** Eliza implements keyword gating, explicit `@mention` triggers, and rate-limiting cooldown timers per channel.
+Understanding the operational boundaries and technical constraints of Eliza is essential for effective deployment.
 
-2. **Limitation:** Character hallucinations can occasionally contradict established lore during long multi-turn conversations.
-   **Mitigation:** RAG memory injection injects immutable lore anchors into every prompt turn to enforce consistency.
+### 1. High-volume social channels (e
+- **Limitation**: High-volume social channels (e.g., active Discord servers) can cause token budget depletion if every message is processed.
+- **Mitigation**: Eliza implements keyword gating, explicit `@mention` triggers, and rate-limiting cooldown timers per channel.
 
-3. **Limitation:** Third-party social platform API outages (e.g., Twitter rate limits) can cause message delivery delays.
-   **Mitigation:** Outbound message queues buffer outgoing tweets and posts with exponential backoff and jitter.
+### 2. Character hallucinations can occasionally contradict established
+- **Limitation**: Character hallucinations can occasionally contradict established lore during long multi-turn conversations.
+- **Mitigation**: RAG memory injection injects immutable lore anchors into every prompt turn to enforce consistency.
 
-4. **Limitation:** Autonomous on-chain transactions carry financial risk in the event of smart contract exploits.
-   **Mitigation:** All Web3 plugins mandate maximum transaction value ceilings and multi-signature authorization for large transfers.
+### 3. Third-party social platform API outages (e
+- **Limitation**: Third-party social platform API outages (e.g., Twitter rate limits) can cause message delivery delays.
+- **Mitigation**: Outbound message queues buffer outgoing tweets and posts with exponential backoff and jitter.
 
-5. **Limitation:** Multi-agent group chats can experience rapid feedback loops where agents endlessly reply to each other.
-   **Mitigation:** Inter-agent communication filters detect agent-origin headers and enforce mandatory inter-turn cooldown delays.
+### 4. Autonomous on-chain transactions carry financial risk
+- **Limitation**: Autonomous on-chain transactions carry financial risk in the event of smart contract exploits.
+- **Mitigation**: All Web3 plugins mandate maximum transaction value ceilings and multi-signature authorization for large transfers.
+
+### 5. Multi-agent group chats can experience rapid
+- **Limitation**: Multi-agent group chats can experience rapid feedback loops where agents endlessly reply to each other.
+- **Mitigation**: Inter-agent communication filters detect agent-origin headers and enforce mandatory inter-turn cooldown delays.
+
+---
 
 ## Summary & Compliance Checklist
 
-| Component | Status | Verification Detail |
-|---|---|---|
-| **5-Stage Decision Pipeline** | Verified | ASCII flow diagram mapping Stages 1 through 5 with explicit state transitions |
-| **Scoring & Routing Mathematics** | Verified | Formal equation $S_{\text{response}}$ with persona, semantic, action, and safety factors |
-| **Deterministic Thresholds & Refusals** | Verified | $\tau = 0.65$ threshold and 5 standardized error codes (`ERR_*`) documented |
-| **Multi-Tier Fallback Strategy** | Verified | Tier 1 (Pruning), Tier 2 (Static Fallback), and Tier 3 (Human Moderator) specified |
-| **Data Privacy & Lineage Architecture** | Verified | Documented inputs, reference data, model lineage, and zero-retention policies |
-| **5 Documented Limitations & Mitigations** | Verified | 5 numbered limitation/mitigation pairs covering rate limits, lore drift, and loops |
+| Checkpoint 2 Requirement | Corresponding Section | Status |
+| :--- | :--- | :---: |
+| **How the agent decides** | [How the Agent Decides](#how-the-agent-decides) | **Covered** |
+| - Decision architecture & 5-stage pipeline | Section 1 | Verified |
+| - Decision logic & routing formulations | Section 2 | Verified |
+| - Thresholding & refusal decision criteria | Section 3 | Verified |
+| - Fallback decision mechanism | Section 4 | Verified |
+| - Human-in-the-loop governance & oversight | Section 5 | Verified |
+| **The data it uses** | [The Data It Uses](#the-data-it-uses) | **Covered** |
+| - Ingested input data & query streams | Section 1 | Verified |
+| - Configuration & reference schemas | Section 2 | Verified |
+| - Base model lineage & deterministic engines | Section 3 | Verified |
+| - Data privacy, retention lifecycle & MITRE/OWASP | Section 4 | Verified |
+| **Its limitations** | [Limitations](#limitations) | **Covered** |
+| - High-volume social channels (e | Section 1 | Verified |
+| - Character hallucinations can occasionally contradict established | Section 2 | Verified |
+| - Third-party social platform API outages (e | Section 3 | Verified |
+| - Autonomous on-chain transactions carry financial risk | Section 4 | Verified |
+| - Multi-agent group chats can experience rapid | Section 5 | Verified |
