@@ -1,0 +1,10 @@
+name: "character-loader"
+description: "Loads, validates, and initializes character profiles and personality manifests."
+input_schema:
+  type: "object"
+  properties:
+    character_path:
+      type: "string"
+      description: "Path to character.json configuration file."
+  required:
+    - "character_path"

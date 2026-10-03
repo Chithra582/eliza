@@ -1,0 +1,21 @@
+spec_version: "0.1.0"
+name: "eliza"
+version: "1.0.0"
+description: "Autonomous multi-agent operating system and framework for conversational, interactive AI characters across Discord, Twitter, Telegram, and Web3."
+author: "ai16z / elizaOS Contributors <contact@ai16z.ai>"
+license: "MIT"
+metadata:
+  domain: "Autonomous Social & Web3 Agent Framework"
+  category: "Developer Tools"
+  framework: "Eliza (elizaOS)"
+  language: "TypeScript"
+skills:
+  - "character-persona-orchestration"
+  - "multi-platform-client-routing"
+  - "autonomous-memory-and-rag"
+  - "blockchain-action-execution"
+tools:
+  - "character-loader"
+  - "client-dispatcher"
+  - "memory-retriever"
+  - "action-evaluator"

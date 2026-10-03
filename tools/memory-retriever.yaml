@@ -1,0 +1,16 @@
+name: "memory-retriever"
+description: "Queries episodic and semantic vector databases for associative conversational memory."
+input_schema:
+  type: "object"
+  properties:
+    query:
+      type: "string"
+      description: "Search text or embedding vector query."
+    user_id:
+      type: "string"
+      description: "User or room identifier."
+    limit:
+      type: "integer"
+      description: "Maximum number of memories to retrieve."
+  required:
+    - "query"

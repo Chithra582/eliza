@@ -1,0 +1,14 @@
+name: "action-evaluator"
+description: "Evaluates and safely executes registered plugin actions and on-chain transactions."
+input_schema:
+  type: "object"
+  properties:
+    action_name:
+      type: "string"
+      description: "Name of registered plugin action."
+    parameters:
+      type: "object"
+      description: "Parameters to pass to the action handler."
+  required:
+    - "action_name"
+    - "parameters"

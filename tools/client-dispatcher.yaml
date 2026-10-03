@@ -1,0 +1,27 @@
+name: "client-dispatcher"
+description: "Dispatches incoming and outgoing messages across Discord, Twitter, and Telegram clients."
+input_schema:
+  type: "object"
+  properties:
+    client_type:
+      type: "string"
+      enum:
+        - "discord"
+        - "twitter"
+        - "telegram"
+        - "direct"
+      description: "Target social or API client."
+    action:
+      type: "string"
+      enum:
+        - "send_message"
+        - "reply"
+        - "react"
+      description: "Dispatch action to execute."
+    payload:
+      type: "object"
+      description: "Message content and destination parameters."
+  required:
+    - "client_type"
+    - "action"
+    - "payload"
